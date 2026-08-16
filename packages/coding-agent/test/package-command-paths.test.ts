@@ -398,6 +398,26 @@ describe("package commands", () => {
 		expect(process.exitCode).toBeUndefined();
 	});
 
+	it("warns and succeeds when update --models cannot refresh some catalogs", async () => {
+		const refresh = vi.fn(async () => ({
+			aborted: false,
+			errors: new Map<string, Error>([["openai", new Error("Model catalog request failed for openai: 503")]]),
+		}));
+		vi.spyOn(ModelRuntime, "create").mockResolvedValue({ refresh } as unknown as ModelRuntime);
+		const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+		await expect(runPackageCommandDirectly(["update", "--models"])).resolves.toBeUndefined();
+
+		const stderr = errorSpy.mock.calls.map(([message]) => String(message)).join("\n");
+		expect(stderr).toContain("could not refresh openai");
+		expect(stderr).toContain("using cached models");
+		expect(logSpy.mock.calls.map(([message]) => String(message)).join("\n")).toContain(
+			"Model catalogs refreshed with warnings",
+		);
+		expect(process.exitCode).toBeUndefined();
+	});
+
 	it("rejects update --models combined with another update target", async () => {
 		const create = vi.spyOn(ModelRuntime, "create");
 		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});

@@ -414,7 +414,12 @@ async function refreshModelCatalogs(agentDir: string): Promise<void> {
 		}
 		if (result.errors.size > 0) {
 			const details = Array.from(result.errors, ([provider, error]) => `${provider}: ${error.message}`).join("; ");
-			throw new Error(`Could not refresh model catalogs: ${details}`);
+			// A single hung provider must not fail the command. Interactive refresh already
+			// keeps cached catalogs; do the same here so `pi update --models` stays usable
+			// when pi.dev drops a subset of requests.
+			console.error(chalk.yellow(`Warning: could not refresh ${details}; using cached models.`));
+			console.log(chalk.green("Model catalogs refreshed with warnings"));
+			return;
 		}
 	} finally {
 		clearTimeout(timeout);
